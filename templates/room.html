@@ -1,0 +1,713 @@
+{% extends "base.html" %} {% block title %}Russian Roulette - Room {{ room_id
+}}{% endblock %} {% block content %}
+<div class="card">
+    <h1>Russian Roulette</h1>
+    <div class="revolver" id="revolver" onclick="spinRevolver()">Gun</div>
+
+    <!-- Room Information -->
+    <div class="room-info">
+        <div
+            style="
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                flex-wrap: wrap;
+            "
+        >
+            <div>
+                <strong>Room ID:</strong>
+                <span class="room-id" id="roomId">{{ room_id }}</span>
+            </div>
+            <button
+                onclick="copyRoomId()"
+                class="btn"
+                style="font-size: 0.9em; padding: 8px 15px"
+            >
+                Copy ID
+            </button>
+        </div>
+        <p style="margin-top: 10px; color: #cccccc">
+            Share this Room ID with your friends so they can join!
+        </p>
+    </div>
+
+    <!-- Game Status -->
+    <div id="gameStatus" class="game-info" style="display: none">
+        <div class="chamber-display">
+            <strong>Chamber: <span id="currentChamber">0</span> / 6</strong>
+        </div>
+        <div id="currentTurnInfo" style="margin: 10px 0; font-size: 1.1em">
+            <strong>Current Turn: <span id="currentPlayerName">-</span></strong>
+        </div>
+    </div>
+
+    <!-- Players Section -->
+    <div class="players-section">
+        <h3>Players (<span id="playerCount">0</span>/6)</h3>
+        <div id="playersList" class="player-list">
+            <!-- Players will be populated here -->
+        </div>
+        <div
+            id="waitingMessage"
+            style="
+                text-align: center;
+                color: #666;
+                font-style: italic;
+                margin: 20px 0;
+            "
+        >
+            Waiting for players to join...
+        </div>
+    </div>
+
+    <!-- Game Controls -->
+    <div id="gameControls" style="margin: 30px 0">
+        <!-- Pre-game controls -->
+        <div id="preGameControls">
+            <button
+                id="startGameBtn"
+                onclick="startGame()"
+                class="btn btn-success"
+                disabled
+            >
+                Start Game
+            </button>
+            <button id="leaveRoomBtn" onclick="leaveRoom()" class="btn">
+                Leave Room
+            </button>
+        </div>
+
+        <!-- In-game controls -->
+        <div id="inGameControls" style="display: none">
+            <button
+                id="pullTriggerBtn"
+                onclick="pullTrigger()"
+                class="btn"
+                disabled
+            >
+                Pull Trigger
+            </button>
+            <button
+                id="resetGameBtn"
+                onclick="resetGame()"
+                class="btn btn-warning"
+                style="display: none"
+            >
+                Reset Game
+            </button>
+        </div>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div
+        id="gameOverScreen"
+        style="
+            display: none;
+            background: #2a2a2a;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        "
+    >
+        <h2 id="gameOverTitle">Game Over!</h2>
+        <p id="gameOverMessage" style="font-size: 1.2em; margin: 15px 0"></p>
+        <div id="gameOverControls" style="margin: 20px 0">
+            <button onclick="playAgain()" class="btn btn-success">
+                Play Again
+            </button>
+            <button onclick="leaveRoom()" class="btn">Leave Room</button>
+        </div>
+    </div>
+
+    <!-- Join Game Modal -->
+    <div
+        id="joinModal"
+        style="
+            display: block;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+        "
+    >
+        <div
+            style="
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: #1a1a1a;
+                padding: 30px;
+                border-radius: 15px;
+                box-shadow: 0 10px 30px rgba(255, 255, 255, 0.1);
+                width: 90%;
+                max-width: 400px;
+                border: 1px solid #333;
+            "
+        >
+            <h2>Join Room {{ room_id }}</h2>
+            <div class="input-group" style="margin: 20px 0">
+                <label for="playerName">Your Name:</label>
+                <input
+                    type="text"
+                    id="playerName"
+                    placeholder="Enter your name..."
+                    maxlength="20"
+                    autofocus
+                />
+            </div>
+            <div style="margin: 20px 0">
+                <button onclick="joinRoomWithName()" class="btn btn-success">
+                    Join Game
+                </button>
+                <button onclick="goHome()" class="btn">Back to Lobby</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div
+        id="loadingOverlay"
+        style="
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 999;
+        "
+    >
+        <div
+            style="
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                text-align: center;
+            "
+        >
+            <div class="spinner"></div>
+            <p style="margin-top: 20px; font-size: 1.2em">Processing...</p>
+        </div>
+    </div>
+</div>
+{% endblock %} {% block scripts %}
+<script>
+    let gameState = null;
+    let myPlayerId = null;
+    let roomId = "{{ room_id }}".toUpperCase();
+    let hasJoined = false;
+    let isHost = false;
+    let myPlayerName = "";
+
+    // Join room functionality
+    function joinRoomWithName() {
+        const playerName = document.getElementById("playerName").value.trim();
+
+        if (!playerName) {
+            showMessage("Please enter your name", "error");
+            return;
+        }
+
+        if (playerName.length > 20) {
+            showMessage("Name must be 20 characters or less", "error");
+            return;
+        }
+
+        myPlayerName = playerName;
+        showLoadingOverlay(true);
+
+        socket.emit("join_room", {
+            room_id: roomId.toUpperCase(),
+            player_name: playerName,
+        });
+
+        console.log("Attempting to join room as:", playerName);
+    }
+
+    function goHome() {
+        if (hasJoined) {
+            socket.disconnect();
+        }
+        window.location.href = "/";
+    }
+
+    function copyRoomId() {
+        copyToClipboard(roomId);
+    }
+
+    function leaveRoom() {
+        if (confirm("Are you sure you want to leave the room?")) {
+            window.location.href = "/";
+        }
+    }
+
+    function showLoadingOverlay(show) {
+        document.getElementById("loadingOverlay").style.display = show
+            ? "block"
+            : "none";
+    }
+
+    // Game control functions
+    function startGame() {
+        console.log("Attempting to start game. GameState:", gameState);
+        console.log("My player ID:", myPlayerId);
+        console.log("Host ID:", gameState ? gameState.host : "no gameState");
+
+        if (!gameState) {
+            showMessage("Game state not loaded yet", "error");
+            return;
+        }
+
+        if (!gameState.host || myPlayerId !== gameState.host) {
+            showMessage("Only the host can start the game", "error");
+            console.log(
+                "Not host. My ID:",
+                myPlayerId,
+                "Host ID:",
+                gameState.host,
+            );
+            return;
+        }
+
+        if (gameState.player_count < 2) {
+            showMessage("Need at least 2 players to start", "error");
+            return;
+        }
+
+        console.log("Starting game...");
+        socket.emit("start_game", { room_id: roomId.toUpperCase() });
+    }
+
+    function pullTrigger() {
+        if (
+            !gameState ||
+            !gameState.current_player ||
+            myPlayerId !== gameState.current_player.id
+        ) {
+            showMessage("It's not your turn!", "error");
+            return;
+        }
+
+        const btn = document.getElementById("pullTriggerBtn");
+        btn.disabled = true;
+        btn.textContent = "Pulling...";
+
+        spinRevolver();
+
+        setTimeout(() => {
+            socket.emit("pull_trigger", { room_id: roomId.toUpperCase() });
+        }, 1000);
+    }
+
+    function resetGame() {
+        if (!gameState || myPlayerId !== gameState.host) {
+            showMessage("Only the host can reset the game", "error");
+            return;
+        }
+
+        if (confirm("Are you sure you want to reset the game?")) {
+            socket.emit("reset_game", { room_id: roomId.toUpperCase() });
+        }
+    }
+
+    function playAgain() {
+        resetGame();
+    }
+
+    // UI update functions
+    function updateGameUI(newGameState) {
+        console.log("Updating game UI with state:", newGameState);
+        gameState = newGameState;
+
+        if (gameState.players) {
+            for (let player of gameState.players) {
+                if (player.id === socket.id || player.name === myPlayerName) {
+                    myPlayerId = player.id;
+                    isHost = player.is_host;
+                    console.log(
+                        `Found myself: ${player.name}, isHost: ${isHost}, socketId: ${player.id}`,
+                    );
+                    break;
+                }
+            }
+        }
+
+        document.getElementById("playerCount").textContent =
+            gameState.player_count;
+        updatePlayersList();
+        updateGameControls();
+        updateGameStatus();
+
+        const waitingMsg = document.getElementById("waitingMessage");
+        if (gameState.player_count === 0) {
+            waitingMsg.textContent = "Waiting for players to join...";
+            waitingMsg.style.display = "block";
+        } else if (gameState.player_count === 1) {
+            waitingMsg.textContent = "Waiting for more players...";
+            waitingMsg.style.display = "block";
+        } else {
+            waitingMsg.style.display = "none";
+        }
+
+        console.log(
+            "Game UI updated. hasJoined:",
+            hasJoined,
+            "isHost:",
+            isHost,
+            "playerCount:",
+            gameState.player_count,
+        );
+    }
+
+    function updatePlayersList() {
+        const playersList = document.getElementById("playersList");
+
+        if (
+            !gameState ||
+            !gameState.players ||
+            gameState.players.length === 0
+        ) {
+            playersList.innerHTML =
+                '<p style="text-align: center; color: #666; font-style: italic;">No players in room</p>';
+            return;
+        }
+
+        const playersHtml = gameState.players
+            .map((player) => {
+                let itemClass = "player-item";
+                let badges = [];
+
+                if (player.is_host) {
+                    itemClass += " host";
+                    badges.push('<span class="badge badge-host">HOST</span>');
+                }
+
+                if (
+                    gameState.game_started &&
+                    gameState.current_player &&
+                    player.id === gameState.current_player.id
+                ) {
+                    itemClass += " current-turn";
+                    badges.push(
+                        '<span class="badge badge-current">YOUR TURN</span>',
+                    );
+                }
+
+                if (!player.is_alive) {
+                    itemClass += " eliminated";
+                    badges.push(
+                        '<span class="badge badge-eliminated">ELIMINATED</span>',
+                    );
+                }
+
+                return `
+                <div class="${itemClass}" data-player-id="${player.id}">
+                    <div class="player-info">
+                        <div class="player-name">${player.name}</div>
+                        <div class="player-status">${player.is_alive ? "Alive" : "Eliminated"}</div>
+                    </div>
+                    <div class="player-badges">
+                        ${badges.join("")}
+                    </div>
+                </div>
+            `;
+            })
+            .join("");
+
+        playersList.innerHTML = playersHtml;
+    }
+
+    function updateGameControls() {
+        const preGameControls = document.getElementById("preGameControls");
+        const inGameControls = document.getElementById("inGameControls");
+        const gameOverScreen = document.getElementById("gameOverScreen");
+        const startBtn = document.getElementById("startGameBtn");
+        const pullTriggerBtn = document.getElementById("pullTriggerBtn");
+        const resetBtn = document.getElementById("resetGameBtn");
+
+        if (gameState.is_game_over) {
+            preGameControls.style.display = "none";
+            inGameControls.style.display = "none";
+            gameOverScreen.style.display = "block";
+
+            if (myPlayerId === gameState.host) {
+                resetBtn.style.display = "inline-block";
+            }
+        } else if (gameState.game_started) {
+            preGameControls.style.display = "none";
+            inGameControls.style.display = "block";
+            gameOverScreen.style.display = "none";
+
+            pullTriggerBtn.disabled =
+                !gameState.current_player ||
+                myPlayerId !== gameState.current_player.id;
+            pullTriggerBtn.textContent = "Pull Trigger";
+
+            resetBtn.style.display =
+                myPlayerId === gameState.host ? "inline-block" : "none";
+        } else {
+            preGameControls.style.display = "block";
+            inGameControls.style.display = "none";
+            gameOverScreen.style.display = "none";
+
+            console.log(
+                "Updating start button. IsHost:",
+                isHost,
+                "PlayerCount:",
+                gameState.player_count,
+            );
+            startBtn.disabled = !isHost || gameState.player_count < 2;
+            startBtn.textContent = isHost
+                ? gameState.player_count >= 2
+                    ? "Start Game"
+                    : "Need More Players"
+                : "Waiting for Host";
+        }
+    }
+
+    function updateGameStatus() {
+        const gameStatus = document.getElementById("gameStatus");
+        const currentChamber = document.getElementById("currentChamber");
+        const currentPlayerName = document.getElementById("currentPlayerName");
+
+        if (gameState.game_started && !gameState.is_game_over) {
+            gameStatus.style.display = "block";
+            currentChamber.textContent = gameState.current_chamber;
+            currentPlayerName.textContent = gameState.current_player
+                ? gameState.current_player.name
+                : "-";
+        } else {
+            gameStatus.style.display = "none";
+        }
+    }
+
+    // Socket event handlers
+    socket.on("player_joined", function (data) {
+        console.log("Player joined event received:", data);
+
+        if (data.game_state) {
+            // Always update game UI for all players
+            updateGameUI(data.game_state);
+
+            // Check if this event is about me joining
+            if (data.game_state.players) {
+                for (let player of data.game_state.players) {
+                    if (
+                        player.id === socket.id ||
+                        player.name === myPlayerName
+                    ) {
+                        hasJoined = true;
+                        myPlayerId = player.id;
+                        isHost = player.is_host;
+                        myPlayerName = player.name;
+                        document.getElementById("joinModal").style.display =
+                            "none";
+                        showLoadingOverlay(false);
+
+                        // Force show the main game interface
+                        document.getElementById("gameControls").style.display =
+                            "block";
+                        document.querySelector(
+                            ".players-section",
+                        ).style.display = "block";
+
+                        console.log(
+                            "I have joined the room as:",
+                            player.name,
+                            "isHost:",
+                            isHost,
+                        );
+                        console.log("Join modal hidden, main interface shown");
+                        break;
+                    }
+                }
+            }
+        } else {
+            console.log("No game state in player_joined event");
+        }
+
+        showMessage(data.message, "success");
+    });
+
+    socket.on("player_left", function (data) {
+        console.log("Player left:", data);
+        showMessage(data.message, "warning");
+        updateGameUI(data.game_state);
+    });
+
+    socket.on("game_started", function (data) {
+        console.log("Game started:", data);
+        showMessage(data.message, "success");
+        updateGameUI(data.game_state);
+        playSound("gameStart");
+    });
+
+    socket.on("trigger_result", function (data) {
+        console.log("Trigger result:", data);
+
+        const btn = document.getElementById("pullTriggerBtn");
+        btn.disabled = false;
+        btn.textContent = "Pull Trigger";
+
+        if (data.result_data && data.result_data.result === "bullet") {
+            showMessage(data.message, "error");
+            document.getElementById("gameOverTitle").textContent = "Game Over!";
+            document.getElementById("gameOverMessage").innerHTML = `
+                <strong>${data.result_data.eliminated_player} got the bullet!</strong><br>
+                <span style="color: #27ae60; font-size: 1.1em;">Winner: ${data.result_data.winner}</span>
+            `;
+            playSound("gameOver");
+        } else {
+            showMessage(data.message, "success");
+            playSound("empty");
+        }
+
+        updateGameUI(data.game_state);
+    });
+
+    socket.on("game_reset", function (data) {
+        console.log("Game reset:", data);
+        showMessage(data.message, "info");
+        updateGameUI(data.game_state);
+    });
+
+    socket.on("game_state_update", function (data) {
+        console.log("Game state update:", data);
+
+        if (data.game_state) {
+            updateGameUI(data.game_state);
+
+            if (data.game_state.players && data.game_state.players.length > 0) {
+                let foundMyself = false;
+                for (let player of data.game_state.players) {
+                    if (
+                        player.id === socket.id ||
+                        (myPlayerName && player.name === myPlayerName)
+                    ) {
+                        foundMyself = true;
+                        hasJoined = true;
+                        myPlayerId = player.id;
+                        isHost = player.is_host;
+                        myPlayerName = player.name;
+                        document.getElementById("joinModal").style.display =
+                            "none";
+
+                        // Force show the main game interface
+                        document.getElementById("gameControls").style.display =
+                            "block";
+                        document.querySelector(
+                            ".players-section",
+                        ).style.display = "block";
+
+                        console.log(
+                            "Found myself in room:",
+                            player.name,
+                            "isHost:",
+                            isHost,
+                        );
+                        break;
+                    }
+                }
+
+                if (!foundMyself && !hasJoined) {
+                    console.log("Not in room yet, showing join modal");
+                    document.getElementById("joinModal").style.display =
+                        "block";
+                }
+            } else if (!hasJoined) {
+                document.getElementById("joinModal").style.display = "block";
+            }
+        } else if (!hasJoined) {
+            document.getElementById("joinModal").style.display = "block";
+        }
+    });
+
+    socket.on("error", function (data) {
+        console.error("Socket error:", data);
+        showLoadingOverlay(false);
+        showMessage(data.message, "error");
+
+        if (data.message.includes("Room not found")) {
+            setTimeout(() => {
+                window.location.href = "/";
+            }, 2000);
+        }
+    });
+
+    document
+        .getElementById("playerName")
+        .addEventListener("keypress", function (e) {
+            if (e.key === "Enter") {
+                joinRoomWithName();
+            }
+        });
+
+    document.addEventListener("keydown", function (e) {
+        if (hasJoined && gameState) {
+            if (
+                e.code === "Space" &&
+                gameState.game_started &&
+                !gameState.is_game_over &&
+                gameState.current_player &&
+                myPlayerId === gameState.current_player.id
+            ) {
+                e.preventDefault();
+                pullTrigger();
+            }
+        }
+    });
+
+    window.addEventListener("load", function () {
+        console.log("Room page loaded for room:", roomId);
+        document.getElementById("roomId").textContent = roomId;
+
+        // Check if I'm the room creator
+        const isCreator =
+            sessionStorage.getItem(`room_${roomId}_creator`) === "true";
+        const creatorName = sessionStorage.getItem(
+            `room_${roomId}_creator_name`,
+        );
+        const creatorSocket = sessionStorage.getItem(
+            `room_${roomId}_creator_socket`,
+        );
+
+        if (isCreator && creatorName && creatorSocket === socket.id) {
+            console.log("I am the creator of this room:", roomId);
+            // Auto-join as creator/host
+            myPlayerName = creatorName;
+            showLoadingOverlay(true);
+            document.getElementById("joinModal").style.display = "none";
+
+            socket.emit("join_room", {
+                room_id: roomId.toUpperCase(),
+                player_name: creatorName,
+            });
+
+            // Clean up session storage
+            sessionStorage.removeItem(`room_${roomId}_creator`);
+            sessionStorage.removeItem(`room_${roomId}_creator_name`);
+            sessionStorage.removeItem(`room_${roomId}_creator_socket`);
+        } else {
+            // Show join modal for non-creators
+            document.getElementById("joinModal").style.display = "block";
+
+            // Check if room exists and get current state
+            setTimeout(() => {
+                socket.emit("get_game_state", {
+                    room_id: roomId.toUpperCase(),
+                });
+            }, 100);
+        }
+    });
+
+    window.addEventListener("beforeunload", function (e) {
+        // The server will automatically handle disconnection
+    });
+</script>
+{% endblock %}

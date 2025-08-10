@@ -1,0 +1,266 @@
+{% extends "base.html" %} {% block title %}Russian Roulette - Create Room{%
+endblock %} {% block content %}
+<div class="card">
+    <h1>Create New Room</h1>
+    <div class="revolver" onclick="spinRevolver()">Gun</div>
+
+    <p style="font-size: 1.2em; margin: 20px 0; color: #555">
+        Create a new multiplayer room and invite your friends!
+    </p>
+
+    <div class="game-info">
+        <h3>Room Features:</h3>
+        <ul style="text-align: left; margin: 15px 0">
+            <li>You'll be the room host</li>
+            <li>Support for 2-6 players</li>
+            <li>Easy sharing with room ID</li>
+            <li>Real-time multiplayer action</li>
+            <li>Full control over game start/reset</li>
+        </ul>
+    </div>
+
+    <div class="input-group">
+        <label for="hostName">Your Name (as Host):</label>
+        <input
+            type="text"
+            id="hostName"
+            placeholder="Enter your name..."
+            maxlength="20"
+            autofocus
+        />
+        <small style="color: #cccccc; font-size: 0.9em">
+            This will be your display name in the game
+        </small>
+    </div>
+
+    <div style="margin: 30px 0">
+        <button onclick="createRoom()" class="btn btn-success" id="createBtn">
+            Create Room
+        </button>
+        <a href="/" class="btn"> Back to Lobby </a>
+    </div>
+
+    <!-- Loading Section -->
+    <div id="loadingSection" style="display: none; margin: 20px 0">
+        <div class="loading">
+            <div class="spinner"></div>
+        </div>
+        <p>Creating your room...</p>
+    </div>
+
+    <!-- Success Section -->
+    <div
+        id="successSection"
+        style="
+            display: none;
+            background: #2a2a2a;
+            border: 1px solid #666666;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        "
+    >
+        <h3 style="color: #ffffff; margin-bottom: 15px">
+            Room Created Successfully!
+        </h3>
+        <div class="room-info">
+            <div style="margin: 10px 0">
+                <strong>Your Room ID:</strong>
+                <span class="room-id" id="newRoomId">-</span>
+                <button
+                    onclick="copyRoomId()"
+                    class="btn"
+                    style="
+                        font-size: 0.8em;
+                        padding: 5px 10px;
+                        margin-left: 10px;
+                    "
+                >
+                    Copy
+                </button>
+            </div>
+            <p style="color: #cccccc; margin: 10px 0">
+                Share this Room ID with your friends so they can join your game!
+            </p>
+        </div>
+        <div style="margin: 20px 0">
+            <button onclick="enterRoom()" class="btn btn-success">
+                Enter Room
+            </button>
+            <button onclick="createAnother()" class="btn btn-secondary">
+                Create Another
+            </button>
+        </div>
+    </div>
+
+    <div
+        style="
+            margin: 20px 0;
+            padding: 15px;
+            background: #2a2a2a;
+            border-radius: 8px;
+            border-left: 5px solid #3498db;
+        "
+    >
+        <h4 style="color: #ffffff; margin-bottom: 10px">Host Tips:</h4>
+        <ul style="text-align: left; margin: 0; color: #cccccc">
+            <li>As the host, you control when the game starts</li>
+            <li>You can reset the game at any time</li>
+            <li>Players can join even after you enter the room</li>
+            <li>Share the Room ID through any messaging app</li>
+            <li>Room stays active as long as you're connected</li>
+        </ul>
+    </div>
+
+    <div
+        style="
+            margin: 20px 0;
+            padding: 15px;
+            background: #3a3a2a;
+            border-radius: 8px;
+            border: 1px solid #666600;
+        "
+    >
+        <p style="color: #cccccc; font-weight: bold">
+            Remember: This is just a game simulation for fun!
+        </p>
+        <p style="color: #cccccc; font-size: 0.9em; margin-top: 5px">
+            Be a responsible host and ensure everyone has a good time!
+        </p>
+    </div>
+</div>
+{% endblock %} {% block scripts %}
+<script>
+    let createdRoomId = null;
+
+    function createRoom() {
+        const hostName = document.getElementById("hostName").value.trim();
+
+        if (!hostName) {
+            showMessage("Please enter your name", "error");
+            document.getElementById("hostName").focus();
+            return;
+        }
+
+        if (hostName.length > 20) {
+            showMessage("Name must be 20 characters or less", "error");
+            return;
+        }
+
+        // Show loading
+        showLoading(true);
+
+        // Disable create button
+        const createBtn = document.getElementById("createBtn");
+        createBtn.disabled = true;
+        createBtn.textContent = "Creating...";
+
+        // Emit create room event
+        socket.emit("create_room", {
+            player_name: hostName,
+        });
+    }
+
+    function copyRoomId() {
+        if (createdRoomId) {
+            copyToClipboard(createdRoomId);
+        }
+    }
+
+    function enterRoom() {
+        if (createdRoomId) {
+            window.location.href = `/room/${createdRoomId}`;
+        }
+    }
+
+    function createAnother() {
+        // Reset form
+        document.getElementById("hostName").value = "";
+        showLoading(false);
+        showSuccess(false);
+
+        // Re-enable create button
+        const createBtn = document.getElementById("createBtn");
+        createBtn.disabled = false;
+        createBtn.textContent = "Create Room";
+
+        // Focus on name input
+        document.getElementById("hostName").focus();
+    }
+
+    function showLoading(show) {
+        document.getElementById("loadingSection").style.display = show
+            ? "block"
+            : "none";
+    }
+
+    function showSuccess(show, roomId = null) {
+        const successSection = document.getElementById("successSection");
+        successSection.style.display = show ? "block" : "none";
+
+        if (show && roomId) {
+            createdRoomId = roomId;
+            document.getElementById("newRoomId").textContent = roomId;
+        }
+    }
+
+    // Socket event handlers
+    socket.on("room_created", function (data) {
+        console.log("Room created successfully:", data);
+
+        showLoading(false);
+        showSuccess(true, data.room_id);
+        showMessage(data.message, "success");
+
+        // Re-enable create button in case they want to create another
+        const createBtn = document.getElementById("createBtn");
+        createBtn.disabled = false;
+        createBtn.textContent = "Create Room";
+    });
+
+    socket.on("error", function (data) {
+        console.error("Error creating room:", data);
+
+        showLoading(false);
+        showSuccess(false);
+        showMessage(data.message || "Failed to create room", "error");
+
+        // Re-enable create button
+        const createBtn = document.getElementById("createBtn");
+        createBtn.disabled = false;
+        createBtn.textContent = "Create Room";
+    });
+
+    // Enter key handler
+    document
+        .getElementById("hostName")
+        .addEventListener("keypress", function (e) {
+            if (e.key === "Enter") {
+                createRoom();
+            }
+        });
+
+    // Auto-focus on name input when page loads
+    window.addEventListener("load", function () {
+        document.getElementById("hostName").focus();
+        console.log("Create room page loaded");
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") {
+            window.location.href = "/";
+        }
+    });
+
+    // Form validation on input
+    document.getElementById("hostName").addEventListener("input", function (e) {
+        const value = e.target.value;
+        const createBtn = document.getElementById("createBtn");
+
+        if (value.length > 20) {
+            showMessage("Name must be 20 characters or less", "warning");
+        }
+    });
+</script>
+{% endblock %}

@@ -1,49 +1,357 @@
-{% extends "base.html" %}
-
-{% block title %}Russian Roulette - Welcome{% endblock %}
-
-{% block content %}
+{% extends "base.html" %} {% block title %}Russian Roulette - Multiplayer
+Lobby{% endblock %} {% block content %}
 <div class="card">
-    <h1>🎯 Russian Roulette</h1>
-    <div class="revolver">🔫</div>
+    <h1>Russian Roulette</h1>
+    <div class="revolver" onclick="spinRevolver()">Gun</div>
 
-    <p style="font-size: 1.2em; margin: 20px 0; color: #555;">
-        Welcome to the ultimate game of chance and nerves!
+    <p style="font-size: 1.2em; margin: 20px 0; color: #555">
+        Welcome to the ultimate multiplayer game of chance and nerves!
     </p>
 
     <div class="game-info">
-        <h3>How to Play:</h3>
-        <ul style="text-align: left; margin: 15px 0;">
-            <li>Add 2-6 players to the game</li>
-            <li>Players take turns pulling the trigger</li>
-            <li>One chamber contains a bullet, the others are empty</li>
-            <li>The player who gets the bullet loses!</li>
-            <li>Last player(s) standing win!</li>
+        <h3>Multiplayer Features:</h3>
+        <ul style="text-align: left; margin: 15px 0">
+            <li>Real-time multiplayer action</li>
+            <li>Play with friends from anywhere</li>
+            <li>2-6 players per room</li>
+            <li>Instant room creation and joining</li>
+            <li>Fair random bullet placement</li>
+            <li>Live winner announcements</li>
         </ul>
     </div>
 
-    <div style="margin: 30px 0;">
-        <a href="{{ url_for('setup') }}" class="btn btn-secondary">
-            🎮 Start New Game
-        </a>
+    <div
+        style="
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            margin: 30px 0;
+        "
+    >
+        <button onclick="showCreateRoom()" class="btn btn-success">
+            Create Room
+        </button>
+        <button onclick="showJoinRoom()" class="btn btn-secondary">
+            Join Room
+        </button>
+        <button onclick="showHowToPlay()" class="btn btn-warning">
+            How to Play
+        </button>
     </div>
 
-    <div style="margin: 20px 0; padding: 15px; background: #fff3cd; border-radius: 8px; border: 1px solid #ffeaa7;">
-        <p style="color: #856404; font-weight: bold;">
-            ⚠️ Remember: This is just a game simulation for fun!
+    <!-- Create Room Section -->
+    <div
+        id="createRoomSection"
+        style="
+            display: none;
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        "
+    >
+        <h3>Create New Room</h3>
+        <div class="input-group">
+            <label for="createPlayerName">Your Name:</label>
+            <input
+                type="text"
+                id="createPlayerName"
+                placeholder="Enter your name..."
+                maxlength="20"
+            />
+        </div>
+        <div style="margin: 15px 0">
+            <button onclick="createRoom()" class="btn btn-success">
+                Create Room
+            </button>
+            <button onclick="hideAllSections()" class="btn">Cancel</button>
+        </div>
+    </div>
+
+    <!-- Join Room Section -->
+    <div
+        id="joinRoomSection"
+        style="
+            display: none;
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+        "
+    >
+        <h3>Join Existing Room</h3>
+        <div class="input-group">
+            <label for="joinRoomId">Room ID:</label>
+            <input
+                type="text"
+                id="joinRoomId"
+                placeholder="Enter room ID..."
+                maxlength="8"
+            />
+        </div>
+        <div style="margin: 15px 0">
+            <button onclick="joinRoom()" class="btn btn-secondary">
+                Join Room
+            </button>
+            <button onclick="hideAllSections()" class="btn">Cancel</button>
+        </div>
+    </div>
+
+    <!-- How to Play Section -->
+    <div
+        id="howToPlaySection"
+        style="
+            display: none;
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: left;
+        "
+    >
+        <h3>How to Play</h3>
+        <div style="margin: 15px 0">
+            <h4>Game Rules:</h4>
+            <ol style="margin: 10px 0; padding-left: 20px">
+                <li>Create or join a room with 2-6 players</li>
+                <li>The host starts the game when ready</li>
+                <li>Players take turns pulling the trigger</li>
+                <li>One chamber contains a bullet (randomly placed)</li>
+                <li>The player who gets the bullet is eliminated</li>
+                <li>Last player(s) standing win!</li>
+            </ol>
+        </div>
+        <div style="margin: 15px 0">
+            <h4>Multiplayer Features:</h4>
+            <ul style="margin: 10px 0; padding-left: 20px">
+                <li>
+                    <strong>Real-time:</strong> See other players' actions
+                    instantly
+                </li>
+                <li>
+                    <strong>Host Controls:</strong> Room creator can start/reset
+                    games
+                </li>
+                <li>
+                    <strong>Turn System:</strong> Players take turns in order
+                </li>
+                <li>
+                    <strong>Live Updates:</strong> Game state updates for
+                    everyone
+                </li>
+                <li>
+                    <strong>Easy Sharing:</strong> Share room ID with friends
+                </li>
+            </ul>
+        </div>
+        <div style="margin: 15px 0">
+            <button onclick="hideAllSections()" class="btn btn-secondary">
+                Got It!
+            </button>
+        </div>
+    </div>
+
+    <!-- Loading Section -->
+    <div id="loadingSection" style="display: none; margin: 20px 0">
+        <div class="loading">
+            <div class="spinner"></div>
+        </div>
+        <p>Connecting to game...</p>
+    </div>
+
+    <!-- Warning Section -->
+    <div
+        style="
+            margin: 20px 0;
+            padding: 15px;
+            background: #fff3cd;
+            border-radius: 8px;
+            border: 1px solid #ffeaa7;
+        "
+    >
+        <p style="color: #cccccc; font-weight: bold">
+            Remember: This is just a game simulation for fun!
+        </p>
+        <p style="color: #cccccc; font-size: 0.9em; margin-top: 5px">
+            Play responsibly and enjoy the multiplayer experience!
         </p>
     </div>
 </div>
-{% endblock %}
-
-{% block scripts %}
+{% endblock %} {% block scripts %}
 <script>
-    // Add some interactive effects
-    document.querySelector('.revolver').addEventListener('click', function() {
-        this.style.animation = 'none';
+    // Section visibility management
+    function showCreateRoom() {
+        hideAllSections();
+        document.getElementById("createRoomSection").style.display = "block";
+        document.getElementById("createPlayerName").focus();
+    }
+
+    function showJoinRoom() {
+        hideAllSections();
+        document.getElementById("joinRoomSection").style.display = "block";
+        document.getElementById("joinRoomId").focus();
+    }
+
+    function showHowToPlay() {
+        hideAllSections();
+        document.getElementById("howToPlaySection").style.display = "block";
+    }
+
+    function hideAllSections() {
+        document.getElementById("createRoomSection").style.display = "none";
+        document.getElementById("joinRoomSection").style.display = "none";
+        document.getElementById("howToPlaySection").style.display = "none";
+        document.getElementById("loadingSection").style.display = "none";
+    }
+
+    function showLoading() {
+        hideAllSections();
+        document.getElementById("loadingSection").style.display = "block";
+    }
+
+    // Room creation
+    function createRoom() {
+        const playerName = document
+            .getElementById("createPlayerName")
+            .value.trim();
+
+        if (!playerName) {
+            showMessage("Please enter your name", "error");
+            return;
+        }
+
+        if (playerName.length > 20) {
+            showMessage("Name must be 20 characters or less", "error");
+            return;
+        }
+
+        showLoading();
+
+        socket.emit("create_room", {
+            player_name: playerName,
+        });
+    }
+
+    // Room joining
+    function joinRoom() {
+        const roomId = document
+            .getElementById("joinRoomId")
+            .value.trim()
+            .toUpperCase();
+
+        if (!roomId) {
+            showMessage("Please enter a room ID", "error");
+            return;
+        }
+
+        if (roomId.length !== 8) {
+            showMessage("Room ID must be 8 characters", "error");
+            return;
+        }
+
+        // Simply redirect to the room page
+        window.location.href = `/room/${roomId}`;
+    }
+
+    // Socket event handlers
+    socket.on("room_created", function (data) {
+        console.log("Room created:", data);
+        showMessage(data.message, "success");
+
+        // Store creator info temporarily for host recognition
+        sessionStorage.setItem(`room_${data.room_id}_creator`, "true");
+        sessionStorage.setItem(
+            `room_${data.room_id}_creator_name`,
+            document.getElementById("createPlayerName").value.trim(),
+        );
+        sessionStorage.setItem(
+            `room_${data.room_id}_creator_socket`,
+            socket.id,
+        );
+
+        // Redirect directly to the room page
         setTimeout(() => {
-            this.style.animation = 'spin 1s ease-in-out';
-        }, 10);
+            window.location.href = `/room/${data.room_id}`;
+        }, 1000);
+    });
+
+    socket.on("player_joined", function (data) {
+        console.log("Joined room:", data);
+        showMessage(data.message, "success");
+
+        // This shouldn't happen on index page, but just in case
+        hideAllSections();
+    });
+
+    // Error handling
+    socket.on("error", function (data) {
+        console.error("Socket error:", data);
+        hideAllSections();
+        showMessage(data.message, "error");
+    });
+
+    // Enter key handlers
+    document
+        .getElementById("createPlayerName")
+        .addEventListener("keypress", function (e) {
+            if (e.key === "Enter") {
+                createRoom();
+            }
+        });
+
+    document
+        .getElementById("joinRoomId")
+        .addEventListener("keypress", function (e) {
+            if (e.key === "Enter") {
+                joinRoom();
+            }
+        });
+
+    // Room ID input formatting (uppercase and length limit)
+    document
+        .getElementById("joinRoomId")
+        .addEventListener("input", function (e) {
+            e.target.value = e.target.value
+                .toUpperCase()
+                .replace(/[^A-Z0-9]/g, "")
+                .slice(0, 8);
+        });
+
+    // Auto-focus on sections
+    function focusFirstInput() {
+        const createSection = document.getElementById("createRoomSection");
+        const joinSection = document.getElementById("joinRoomSection");
+
+        if (createSection.style.display === "block") {
+            document.getElementById("createPlayerName").focus();
+        } else if (joinSection.style.display === "block") {
+            document.getElementById("joinRoomId").focus();
+        }
+    }
+
+    // Add some interactive effects
+    document.querySelector(".revolver").addEventListener("click", function () {
+        spinRevolver();
+        playSound("click");
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") {
+            hideAllSections();
+        }
+    });
+
+    // Helper function to enter room
+    function enterRoom(roomId) {
+        window.location.href = `/room/${roomId}`;
+    }
+
+    // Initialize page
+    window.addEventListener("load", function () {
+        console.log("Russian Roulette Multiplayer Lobby Loaded");
+        hideAllSections();
     });
 </script>
 {% endblock %}
