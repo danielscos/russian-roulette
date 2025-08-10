@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Russian Roulette - Welcome{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h1>🎯 Russian Roulette</h1>
+    <div class="revolver">🔫</div>
+
+    <p style="font-size: 1.2em; margin: 20px 0; color: #555;">
+        Welcome to the ultimate game of chance and nerves!
+    </p>
+
+    <div class="game-info">
+        <h3>How to Play:</h3>
+        <ul style="text-align: left; margin: 15px 0;">
+            <li>Add 2-6 players to the game</li>
+            <li>Players take turns pulling the trigger</li>
+            <li>One chamber contains a bullet, the others are empty</li>
+            <li>The player who gets the bullet loses!</li>
+            <li>Last player(s) standing win!</li>
+        </ul>
+    </div>
+
+    <div style="margin: 30px 0;">
+        <a href="{{ url_for('setup') }}" class="btn btn-secondary">
+            🎮 Start New Game
+        </a>
+    </div>
+
+    <div style="margin: 20px 0; padding: 15px; background: #fff3cd; border-radius: 8px; border: 1px solid #ffeaa7;">
+        <p style="color: #856404; font-weight: bold;">
+            ⚠️ Remember: This is just a game simulation for fun!
+        </p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Add some interactive effects
+    document.querySelector('.revolver').addEventListener('click', function() {
+        this.style.animation = 'none';
+        setTimeout(() => {
+            this.style.animation = 'spin 1s ease-in-out';
+        }, 10);
+    });
+</script>
+{% endblock %}
